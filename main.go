@@ -7,19 +7,29 @@ import (
 )
 
 type SuffixMux struct{
+	m map[string]http.Handler
 	defHandler http.Handler
 }
 
 func NewSuffixMux() *SuffixMux {
-	return &SuffixMux{}
+	return &SuffixMux{m: make(map[string]http.Handler)}
 }
 
 func (mux *SuffixMux) handler(r *http.Request) http.Handler {
-	if strings.HasSuffix(r.RequestURI, ".md") {
-		return http.HandlerFunc(MarkDownHandler)
-	} else {
-		return mux.defHandler
+	for s, h := range(mux.m) {
+		if strings.HasSuffix(r.RequestURI, s) {
+			return h
+		}
 	}
+	return mux.defHandler
+}
+
+func (mux *SuffixMux) Handle(suffix string, h http.Handler) {
+	mux.m[suffix] = h
+}
+
+func (mux *SuffixMux) DefaultHandler(h http.Handler) {
+	mux.defHandler = h
 }
 
 func (mux *SuffixMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -41,7 +51,8 @@ func MarkDownHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	mux := NewSuffixMux()
-	mux.defHandler = http.FileServer(http.FileSystem(http.Dir(".")))
+	mux.Handle(".md", http.HandlerFunc(MarkDownHandler))
+	mux.DefaultHandler(http.FileServer(http.FileSystem(http.Dir("."))))
 	log.Println("Listening at 0.0.0.0:8888")
 	http.ListenAndServe("0.0.0.0:8888", mux)
 }
