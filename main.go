@@ -1,13 +1,13 @@
 package main
 
 import (
-	"net/http"
 	"log"
+	"net/http"
 	"strings"
 )
 
-type SuffixMux struct{
-	m map[string]http.Handler
+type SuffixMux struct {
+	m          map[string]http.Handler
 	defHandler http.Handler
 }
 
@@ -16,7 +16,7 @@ func NewSuffixMux() *SuffixMux {
 }
 
 func (mux *SuffixMux) handler(r *http.Request) http.Handler {
-	for s, h := range(mux.m) {
+	for s, h := range mux.m {
 		if strings.HasSuffix(r.RequestURI, s) {
 			return h
 		}
