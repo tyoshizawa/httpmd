@@ -53,6 +53,7 @@ var codes = map[string]string{
 	".cpp":  "cpp",
 	".css":  "css",
 	".diff": "diff",
+	".ex":   "elixir",
 	".go":   "go",
 	".java": "java",
 	".js":   "javascript",
