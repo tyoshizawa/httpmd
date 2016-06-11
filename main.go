@@ -1,10 +1,10 @@
 package main
 
 import (
+	"html/template"
 	"log"
 	"net/http"
 	"strings"
-	"html/template"
 )
 
 const mdTempl = `
@@ -24,7 +24,9 @@ $(document).ready(function(){
   var target = $("#markdown_content");
   $.ajax({
     url: "{{.URI}}?raw=1",
+    dataType: "text",
   }).done(function(data){
+    {{if .LANG}}data = "` + "```" + `{{.LANG}}\n" + data + "\n` + "```" + `";{{end}}
     target.append(marked(data));
     $('#markdown_content pre code').each(function(i, block) {
       hljs.highlightBlock(block);
@@ -43,6 +45,24 @@ $(document).ready(function(){
 </body>
 </html>
 `
+
+// codes is a map of key: suffix string, value: lang
+var codes = map[string]string {
+	".c": "c",
+	".cpp": "cpp",
+	".css": "css",
+	".diff": "diff",
+	".go": "go",
+	".java": "java",
+	".js": "javascript",
+	".json": "json",
+	".pl": "perl",
+	".php": "php",
+	".py": "python",
+	".rb": "ruby",
+	".sh": "shell",
+	".sql": "sql",
+}
 
 type SuffixMux struct {
 	m          map[string]http.Handler
@@ -83,15 +103,21 @@ func (mux *SuffixMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.ServeHTTP(w, r)
 }
 
-func MarkDownHandler(w http.ResponseWriter, r *http.Request) {
-	t := template.Must(template.New("markdown").Parse(mdTempl))
-	uri := template.JSEscapeString(r.RequestURI)
-	t.Execute(w, struct{URI string}{uri})
+func CodeMarkDownHandler(lang string) http.Handler {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		t := template.Must(template.New("markdown").Parse(mdTempl))
+		uri := template.JSEscapeString(r.RequestURI)
+		t.Execute(w, struct{ URI, LANG string }{uri, lang})
+	}
+	return http.HandlerFunc(handler)
 }
 
 func main() {
 	mux := NewSuffixMux()
-	mux.Handle(".md", http.HandlerFunc(MarkDownHandler))
+	mux.Handle(".md", CodeMarkDownHandler(""))
+	for sfx, lang := range codes {
+		mux.Handle(sfx, CodeMarkDownHandler(lang))
+	}
 	mux.DefaultHandler(http.FileServer(http.FileSystem(http.Dir("."))))
 	log.Println("Listening at 0.0.0.0:8888")
 	http.ListenAndServe("0.0.0.0:8888", mux)
