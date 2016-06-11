@@ -4,7 +4,43 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"text/template"
 )
+
+const mdTempl = `
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Marked in the browser</title>
+  <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.6/css/bootstrap.min.css">
+  <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.4.0/styles/github.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.0.0/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/0.3.5/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.4.0/highlight.min.js"></script>
+  <script>
+$(document).ready(function(){
+  hljs.initHighlightingOnLoad();
+  marked.setOptions({ langPrefix: '' });
+  var target = $("#markdown_content");
+  $.ajax({
+    url: "{{.RequestURI}}?raw=1",
+  }).done(function(data){
+    target.append(marked(data));
+  }).fail(function(data){
+    target.append("This content failed to load.");
+  });
+});
+  </script>
+</head>
+<body>
+  <!-- Content -->
+  <div class="container">
+    <div id="markdown_content"> </div>
+  </div>
+</body>
+</html>
+`
 
 type SuffixMux struct {
 	m          map[string]http.Handler
@@ -46,7 +82,8 @@ func (mux *SuffixMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func MarkDownHandler(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Hello World!"))
+	t := template.Must(template.New("letter").Parse(mdTempl))
+	t.Execute(w, r)
 }
 
 func main() {
