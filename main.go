@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"html/template"
 	"log"
 	"net/http"
@@ -26,7 +27,7 @@ $(document).ready(function(){
     url: "{{.URI}}?raw=1",
     dataType: "text",
   }).done(function(data){
-    {{if .LANG}}data = "## {{.URI}}\n` + "```" + `{{.LANG}}\n" + data + "\n` + "```" + `";{{end}}
+    {{if .LANG}}data = "## {{.URI}}\n~~~{{.LANG}}\n" + data + "\n~~~";{{end}}
     target.append(marked(data));
     $('#markdown_content pre code').each(function(i, block) {
       hljs.highlightBlock(block);
@@ -47,21 +48,21 @@ $(document).ready(function(){
 `
 
 // codes is a map of key: suffix string, value: lang
-var codes = map[string]string {
-	".c": "c",
-	".cpp": "cpp",
-	".css": "css",
+var codes = map[string]string{
+	".c":    "c",
+	".cpp":  "cpp",
+	".css":  "css",
 	".diff": "diff",
-	".go": "go",
+	".go":   "go",
 	".java": "java",
-	".js": "javascript",
+	".js":   "javascript",
 	".json": "json",
-	".pl": "perl",
-	".php": "php",
-	".py": "python",
-	".rb": "ruby",
-	".sh": "shell",
-	".sql": "sql",
+	".pl":   "perl",
+	".php":  "php",
+	".py":   "python",
+	".rb":   "ruby",
+	".sh":   "shell",
+	".sql":  "sql",
 }
 
 type SuffixMux struct {
@@ -113,12 +114,17 @@ func CodeMarkDownHandler(lang string) http.Handler {
 }
 
 func main() {
+	var host, port, dir string
+	flag.StringVar(&host, "h", "0.0.0.0", "host ip")
+	flag.StringVar(&port, "p", "8888", "port number")
+	flag.StringVar(&dir, "d", ".", "root dir")
+	flag.Parse()
 	mux := NewSuffixMux()
 	mux.Handle(".md", CodeMarkDownHandler(""))
 	for sfx, lang := range codes {
 		mux.Handle(sfx, CodeMarkDownHandler(lang))
 	}
-	mux.DefaultHandler(http.FileServer(http.FileSystem(http.Dir("."))))
-	log.Println("Listening at 0.0.0.0:8888")
-	http.ListenAndServe("0.0.0.0:8888", mux)
+	mux.DefaultHandler(http.FileServer(http.FileSystem(http.Dir(dir))))
+	log.Printf("Listening %s at %s:%s\n", dir, host, port)
+	http.ListenAndServe(host+":"+port, mux)
 }
