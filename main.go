@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	"text/template"
+	"html/template"
 )
 
 const mdTempl = `
@@ -20,13 +20,15 @@ const mdTempl = `
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.4.0/highlight.min.js"></script>
   <script>
 $(document).ready(function(){
-  hljs.initHighlightingOnLoad();
   marked.setOptions({ langPrefix: '' });
   var target = $("#markdown_content");
   $.ajax({
-    url: "{{.RequestURI}}?raw=1",
+    url: "{{.URI}}?raw=1",
   }).done(function(data){
     target.append(marked(data));
+    $('#markdown_content pre code').each(function(i, block) {
+      hljs.highlightBlock(block);
+    });
   }).fail(function(data){
     target.append("This content failed to load.");
   });
@@ -82,8 +84,9 @@ func (mux *SuffixMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func MarkDownHandler(w http.ResponseWriter, r *http.Request) {
-	t := template.Must(template.New("letter").Parse(mdTempl))
-	t.Execute(w, r)
+	t := template.Must(template.New("markdown").Parse(mdTempl))
+	uri := template.JSEscapeString(r.RequestURI)
+	t.Execute(w, struct{URI string}{uri})
 }
 
 func main() {
