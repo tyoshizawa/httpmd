@@ -26,7 +26,7 @@ $(document).ready(function(){
     url: "{{.URI}}?raw=1",
     dataType: "text",
   }).done(function(data){
-    {{if .LANG}}data = "` + "```" + `{{.LANG}}\n" + data + "\n` + "```" + `";{{end}}
+    {{if .LANG}}data = "## {{.URI}}\n` + "```" + `{{.LANG}}\n" + data + "\n` + "```" + `";{{end}}
     target.append(marked(data));
     $('#markdown_content pre code').each(function(i, block) {
       hljs.highlightBlock(block);
