@@ -24,7 +24,7 @@ $(document).ready(function(){
   marked.setOptions({ langPrefix: '' });
   var target = $("#markdown_content");
   $.ajax({
-    url: "{{.URI}}?raw=1",
+    url: "{{.URI}}",
     dataType: "text",
   }).done(function(data){
     {{if .LANG}}data = "## {{.URI}}\n~~~{{.LANG}}\n" + data + "\n~~~";{{end}}
@@ -78,6 +78,7 @@ func NewSuffixMux() *SuffixMux {
 func (mux *SuffixMux) handler(r *http.Request) http.Handler {
 	for s, h := range mux.m {
 		if strings.HasSuffix(r.RequestURI, s) {
+			log.Println(r.RequestURI, "Matched", s)
 			return h
 		}
 	}
@@ -108,8 +109,7 @@ func (mux *SuffixMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func CodeMarkDownHandler(lang string) http.Handler {
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		t := template.Must(template.New("markdown").Parse(mdTempl))
-		uri := template.JSEscapeString(r.RequestURI)
-		t.Execute(w, struct{ URI, LANG string }{uri, lang})
+		t.Execute(w, struct{ URI, LANG string }{r.URL.EscapedPath(), lang})
 	}
 	return http.HandlerFunc(handler)
 }
@@ -121,9 +121,9 @@ func main() {
 	flag.StringVar(&dir, "d", ".", "root dir")
 	flag.Parse()
 	mux := NewSuffixMux()
-	mux.Handle(".md", CodeMarkDownHandler(""))
+	mux.Handle(".md?render=1", CodeMarkDownHandler(""))
 	for sfx, lang := range codes {
-		mux.Handle(sfx, CodeMarkDownHandler(lang))
+		mux.Handle(sfx + "?render=1", CodeMarkDownHandler(lang))
 	}
 	mux.DefaultHandler(http.FileServer(http.FileSystem(http.Dir(dir))))
 	log.Printf("Listening %s at %s:%s\n", dir, host, port)
