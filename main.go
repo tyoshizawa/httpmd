@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -71,6 +72,31 @@ type SuffixMux struct {
 	defHandler http.Handler
 }
 
+func makeHrefEndsWiths() string {
+	endswiths := []string{`href.endsWith(".md")`}
+	for code, _ := range codes {
+		endswiths = append(endswiths, fmt.Sprintf(`href.endsWith("%s")`, code))
+	}
+	return strings.Join(endswiths, " || ")
+}
+
+func makeRenderJavaScript() string {
+	return `
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.0.0/jquery.min.js"></script>
+<script>
+$(document).ready(function(){
+  $('pre a').each(function(i, block) {
+    var href = $(block).attr("href");
+    if (` + makeHrefEndsWiths() + `) {
+      console.log("href");
+      $(block).attr("href", href + "?render=1");
+    }
+  });
+});
+</script>
+`
+}
+
 func NewSuffixMux() *SuffixMux {
 	return &SuffixMux{m: make(map[string]http.Handler)}
 }
@@ -78,7 +104,6 @@ func NewSuffixMux() *SuffixMux {
 func (mux *SuffixMux) handler(r *http.Request) http.Handler {
 	for s, h := range mux.m {
 		if strings.HasSuffix(r.RequestURI, s) {
-			log.Println(r.RequestURI, "Matched", s)
 			return h
 		}
 	}
@@ -114,6 +139,18 @@ func CodeMarkDownHandler(lang string) http.Handler {
 	return http.HandlerFunc(handler)
 }
 
+func appendRenderMiddleware(h http.Handler) http.Handler {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		h.ServeHTTP(w, r)
+		url := r.URL.Path
+		if url[len(url)-1] == '/' {
+			// Appending JavaScript to append ?render=1
+			w.Write([]byte(makeRenderJavaScript()))
+		}
+	}
+	return http.HandlerFunc(handler)
+}
+
 func main() {
 	var host, port, dir string
 	flag.StringVar(&host, "h", "0.0.0.0", "host ip")
@@ -123,9 +160,9 @@ func main() {
 	mux := NewSuffixMux()
 	mux.Handle(".md?render=1", CodeMarkDownHandler(""))
 	for sfx, lang := range codes {
-		mux.Handle(sfx + "?render=1", CodeMarkDownHandler(lang))
+		mux.Handle(sfx+"?render=1", CodeMarkDownHandler(lang))
 	}
-	mux.DefaultHandler(http.FileServer(http.FileSystem(http.Dir(dir))))
+	mux.DefaultHandler(appendRenderMiddleware(http.FileServer(http.FileSystem(http.Dir(dir)))))
 	log.Printf("Listening %s at %s:%s\n", dir, host, port)
 	http.ListenAndServe(host+":"+port, mux)
 }
